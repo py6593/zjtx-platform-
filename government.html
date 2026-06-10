@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>专精特新培育 · 政府数据全景</title>
+<script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════
+   GOVERNMENT 3D DASHBOARD — taste-skill + sc-datav
+   VARIANCE:4 MOTION:3 DENSITY:6 (government cockpit)
+   ═══════════════════════════════════════════════ */
+:root {
+  --deep: #0a0e1a; --panel: rgba(10,15,28,0.92); --panel2: rgba(15,20,38,0.88);
+  --gold: #f0c060; --gold2: #d4a030; --gold-dim: rgba(240,192,96,0.15);
+  --text: #e8e6e0; --text2: #a0a090; --accent: #60b0d0;
+  --green: #50c878; --warn: #f0a030; --red: #e05050;
+  --radius: 8px; --radius-sm: 5px;
+  --font: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--deep);color:var(--text);overflow:hidden;height:100vh;width:100vw}
+canvas{display:block;position:fixed;top:0;left:0;z-index:0;pointer-events:none}
+
+/* ── Overlay Layout ── */
+.ui-layer{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;pointer-events:none}
+.ui-layer>*{pointer-events:auto}
+
+/* ── Top Bar ── */
+.topbar{gap:0;display:flex;align-items:center;justify-content:space-between;
+  padding:12px 28px;background:linear-gradient(180deg,rgba(10,15,28,.95) 0%,rgba(10,15,28,.6) 100%);
+  border-bottom:1px solid rgba(240,192,96,.12)}
+.topbar h1{font-size:22px;font-weight:700;color:var(--gold);letter-spacing:.04em}
+.topbar h1 span{font-size:13px;color:var(--text2);font-weight:400;margin-left:12px;letter-spacing:.02em}
+.topbar-right{display:flex;align-items:center;gap:20px;font-size:12px;color:var(--text2)}
+.topbar-live{display:flex;align-items:center;gap:6px}
+.topbar-dot{width:8px;height:8px;background:var(--green);border-radius:50%;animation:blink 2s infinite}
+@keyframes blinks{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── Progress Strip ── */
+.progress-strip{display:flex;gap:1px;padding:8px 28px;background:rgba(10,15,28,.7)}
+.progress-strip .p-item{flex:1;display:flex;align-items:center;gap:8px;padding:6px 12px;
+  background:rgba(255,255,255,.03);border-radius:var(--radius-sm)}
+.p-item .p-icon{font-size:18px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  background:rgba(240,192,96,.1);border-radius:6px;flex-shrink:0}
+.p-item .p-num{font-size:22px;font-weight:700;color:var(--gold);line-height:1}
+.p-item .p-label{font-size:10px;color:var(--text2);letter-spacing:.03em}
+.p-item .p-bar{flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;min-width:60px}
+.p-item .p-fill{height:100%;border-radius:2px;transition:width 1s}
+.p-fill.g{background:var(--green)}.p-fill.y{background:var(--gold2)}.p-fill.b{background:var(--accent)}
+
+/* ── Main Grid ── */
+.main-grid{display:flex;flex:1;padding:10px 16px 16px;gap:10px;min-height:0}
+.left-panel{width:320px;display:flex;flex-direction:column;gap:10px;flex-shrink:0}
+.center-panel{flex:1;display:flex;flex-direction:column;gap:10px;min-width:0}
+.right-panel{width:340px;display:flex;flex-direction:column;gap:10px;flex-shrink:0}
+
+/* ── Glass Panel ── */
+.panel{background:var(--panel);border:1px solid rgba(240,192,96,.1);border-radius:var(--radius);
+  padding:14px 16px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.panel-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.panel-hd h3{font-size:13px;font-weight:600;color:var(--gold2);letter-spacing:.04em}
+.panel-hd .hd-tag{font-size:10px;color:var(--text2);letter-spacing:.05em;text-transform:uppercase}
+.chart{width:100%}
+.chart-sm{height:180px}.chart-md{height:250px}.chart-lg{height:320px}
+
+/* ── Stat Mini ── */
+.stat-mini{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-mini .sm{text-align:center;padding:10px 6px;background:rgba(255,255,255,.03);border-radius:var(--radius-sm)}
+.sm .sm-num{font-size:24px;font-weight:700;color:var(--accent);line-height:1.1}
+.sm .sm-lbl{font-size:10px;color:var(--text2);margin-top:2px}
+
+/* ── Table Mini ── */
+.tbl-mini{width:100%;font-size:11px;border-collapse:collapse}
+.tbl-mini th,.tbl-mini td{padding:6px 8px;text-align:left}
+.tbl-mini th{color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid rgba(255,255,255,.06)}
+.tbl-mini td{border-bottom:1px solid rgba(255,255,255,.03)}
+.tbl-mini .bar-cell{display:flex;align-items:center;gap:6px}
+.tbl-mini .bar-cell .b{flex:1;height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.tbl-mini .bar-cell .bf{height:100%;border-radius:2px}
+.bf-g{background:var(--green)}.bf-y{background:var(--gold2)}.bf-b{background:var(--accent)}.bf-r{background:var(--red)}
+
+/* ── Alert Row ── */
+.alert-row{display:flex;gap:8px;flex-wrap:wrap}
+.alert-row .a{padding:6px 12px;border-radius:var(--radius-sm);font-size:10px;border:1px solid;
+  letter-spacing:.02em;display:flex;align-items:center;gap:6px}
+.a-warn{border-color:rgba(240,160,48,.3);background:rgba(240,160,48,.06);color:var(--warn)}
+.a-good{border-color:rgba(80,200,120,.3);background:rgba(80,200,120,.06);color:var(--green)}
+.a-info{border-color:rgba(96,176,208,.3);background:rgba(96,176,208,.06);color:var(--accent)}
+
+/* ── Map Placeholder Label ── */
+.map-label{position:absolute;color:var(--gold);font-size:9px;letter-spacing:.06em;
+  text-shadow:0 0 8px rgba(240,192,96,.4);pointer-events:none;transform:translate(-50%,-50%);z-index:1}
+
+/* ── Bottom Data Stream ── */
+.data-stream{display:flex;gap:12px;padding:6px 28px;background:rgba(10,15,28,.8);border-top:1px solid rgba(240,192,96,.08)}
+.data-stream .ds-item{display:flex;align-items:center;gap:6px;font-size:11px;padding:4px 10px;
+  background:rgba(255,255,255,.02);border-radius:var(--radius-sm);flex:1}
+.ds-item .ds-icon{color:var(--gold2);font-size:14px}
+.ds-item .ds-val{font-weight:600;color:var(--accent)}
+.ds-item .ds-lbl{color:var(--text2);font-size:10px}
+
+/* ── Responsive ── */
+@media(max-width:1280px){.left-panel,.right-panel{width:280px}}
+@media(max-width:1024px){.main-grid{flex-direction:column}.left-panel,.right-panel{width:100%;flex-direction:row}}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div class="ui-layer">
+  <!-- Top Bar -->
+  <div class="topbar">
+    <h1>🏛️ 专精特新培育 · 政府数据全景<span>Jiaxing SRDI Enterprise Monitoring</span></h1>
+    <div class="topbar-right">
+      <div class="topbar-live"><div class="topbar-dot"></div>实时数据</div>
+      <span>更新：2026-06-10 15:30</span>
+      <span>嘉兴市经信局 · 禾商研究中心</span>
+    </div>
+  </div>
+
+  <!-- Progress Strip -->
+  <div class="progress-strip" id="progressStrip"></div>
+
+  <!-- Main Grid -->
+  <div class="main-grid">
+    <!-- LEFT -->
+    <div class="left-panel">
+      <div class="panel" style="flex:1">
+        <div class="panel-hd"><h3>企业梯度分布</h3><span class="hd-tag">Real-time</span></div>
+        <div class="chart chart-sm" id="chartGradient"></div>
+        <div class="stat-mini">
+          <div class="sm"><div class="sm-num" style="color:var(--green)">203</div><div class="sm-lbl">累计培育小巨人</div></div>
+          <div class="sm"><div class="sm-num" style="color:var(--gold)">51</div><div class="sm-lbl">2025年新增 (省1)</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd"><h3>行业覆盖热力</h3><span class="hd-tag">TOP 8</span></div>
+        <div class="chart chart-sm" id="chartIndustry"></div>
+      </div>
+    </div>
+
+    <!-- CENTER - main map area -->
+    <div class="center-panel">
+      <div class="panel" style="flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center">
+        <div style="position:absolute;top:14px;left:16px;z-index:2">
+          <div class="panel-hd"><h3>嘉兴市专精特新企业空间分布</h3><span class="hd-tag">3D GIS</span></div>
+        </div>
+        <div class="chart" id="chartMap" style="height:100%"></div>
+      </div>
+      <div class="alert-row">
+        <div class="a a-good">✅ 南湖区：新增12家省级专精特新</div>
+        <div class="a a-warn">🟡 海盐县：冲刺小巨人目标30%</div>
+        <div class="a a-info">🔵 嘉善县：数字化水平全市领先</div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right-panel">
+      <div class="panel">
+        <div class="panel-hd"><h3>城市对标分析</h3><span class="hd-tag">Competitive</span></div>
+        <div class="tbl-mini">
+          <table><thead><tr><th>城市</th><th>小巨人</th><th>数字化</th><th>研发</th></tr></thead>
+          <tbody id="cityCompare"></tbody></table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd"><h3>潜力企业预判 Top 8</h3><span class="hd-tag">AI Forecast</span></div>
+        <div class="tbl-mini"><table><thead><tr><th>企业</th><th>当前</th><th>指数</th></tr></thead>
+        <tbody id="predictionTable"></tbody></table></div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd"><h3>月度培育进度</h3><span class="hd-tag">MoM</span></div>
+        <div class="chart chart-sm" id="chartMonthly"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Stream -->
+  <div class="data-stream" id="dataStream"></div>
+</div>
+
+<script>
+// ═════════════════════════════════════════════
+// DATA
+// ═════════════════════════════════════════════
+const enterprises = [
+  {name:'嘉兴明达精密机械',industry:'精密制造',stage:'专精特新',city:'南湖区',score:72,targetScore:85},
+  {name:'浙江恒力新材料',industry:'新材料',stage:'创新型',city:'秀洲区',score:55,targetScore:78},
+  {name:'嘉兴锐思光电技术',industry:'光电技术',stage:'小巨人',city:'南湖区',score:90,targetScore:95},
+  {name:'海宁智联电子科技',industry:'电子信息',stage:'创新型',city:'海宁市',score:48,targetScore:72},
+  {name:'平湖绿色生物技术',industry:'生物医药',stage:'专精特新',city:'平湖市',score:68,targetScore:82},
+  {name:'嘉善万丰轴承制造',industry:'精密制造',stage:'创新型',city:'嘉善县',score:40,targetScore:68},
+  {name:'桐乡智慧纺织科技',industry:'纺织科技',stage:'专精特新',city:'桐乡市',score:75,targetScore:88},
+  {name:'嘉兴星辰半导体材料',industry:'半导体',stage:'创新型',city:'南湖区',score:62,targetScore:76},
+  {name:'海盐精工模具科技',industry:'模具制造',stage:'专精特新',city:'海盐县',score:70,targetScore:84},
+  {name:'嘉兴鹏程新能源',industry:'新能源',stage:'小巨人',city:'秀洲区',score:92,targetScore:98},
+];
+
+const cityData = [
+  {name:'南湖区',giants:35,digital:88,rd:3.8,enterprises:486},
+  {name:'秀洲区',giants:22,digital:72,rd:3.3,enterprises:358},
+  {name:'嘉善县',giants:28,digital:85,rd:3.5,enterprises:312},
+  {name:'平湖市',giants:18,digital:68,rd:3.1,enterprises:278},
+  {name:'海盐县',giants:15,digital:60,rd:2.9,enterprises:240},
+  {name:'海宁市',giants:20,digital:78,rd:3.6,enterprises:298},
+  {name:'桐乡市',giants:25,digital:82,rd:3.4,enterprises:354},
+];
+
+const targets = [
+  {name:'一',label:'培育世界级单项冠军',goal:'1~2',current:0,unit:'家',pct:15,icon:'👑'},
+  {name:'十',label:'培育国家级小巨人',goal:'15+',current:2,unit:'家',pct:30,icon:'🏆'},
+  {name:'百',label:'培育省级专精特新',goal:'200+',current:155,unit:'家',pct:78,icon:'📋'},
+  {name:'千',label:'培育创新型中小企业',goal:'1000+',current:728,unit:'家',pct:73,icon:'🌱'},
+  {name:'万',label:'辐射服务中小微企业',goal:'10000+',current:2126,unit:'家',pct:85,icon:'🏭'},
+];
+
+const cities = ['杭州','宁波','嘉兴','温州','湖州','绍兴','金华','台州'];
+const cityGiants = [321,283,155,112,85,98,62,78];
+const cityDigital = [76,65,88,58,62,70,55,60];
+const cityRD = [3.8,3.2,3.6,2.8,3.0,3.1,2.5,2.7];
+
+// ═════════════════════════════════════════════
+// THREE.JS 3D BACKGROUND
+// ═════════════════════════════════════════════
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
+camera.position.z = 12;
+
+const renderer = new THREE.WebGLRenderer({canvas:document.getElementById('bgCanvas'),alpha:true,antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+
+// Stars
+const starGeo = new THREE.BufferGeometry();
+const starCount = 2000;
+const starVerts = new Float32Array(starCount*3);
+for(let i=0;i<starCount*3;i+=3){
+  starVerts[i]=(Math.random()-0.5)*40;
+  starVerts[i+1]=(Math.random()-0.5)*30;
+  starVerts[i+2]=(Math.random()-0.5)*20-5;
+}
+starGeo.setAttribute('position',new THREE.BufferAttribute(starVerts,3));
+const starMat = new THREE.PointsMaterial({color:0xc0a060,size:0.03,transparent:true,opacity:0.6});
+const stars = new THREE.Points(starGeo,starMat);
+scene.add(stars);
+
+// Glow ring system
+const rings = [];
+for(let r=0;r<3;r++){
+  const ringGeo = new THREE.TorusGeometry(4+r*1.8, 0.008, 16, 100);
+  const ringMat = new THREE.MeshBasicMaterial({color:new THREE.Color().setHSL(0.12,0.6,0.3+r*0.2),transparent:true,opacity:0.15+r*0.05});
+  const ring = new THREE.Mesh(ringGeo,ringMat);
+  ring.rotation.x = Math.PI/2.5 + r*0.3;
+  ring.rotation.y = r*0.4;
+  scene.add(ring);
+  rings.push({mesh:ring,rx:Math.PI/2.5+r*0.3,ry:r*0.4,speed:0.15+r*0.08});
+}
+
+// Central glow particle system
+const particleGeo = new THREE.BufferGeometry();
+const pCount = 600;
+const pVerts = new Float32Array(pCount*3);
+const pSizes = new Float32Array(pCount);
+for(let i=0;i<pCount;i++){
+  const theta=Math.random()*Math.PI*2;
+  const phi=Math.random()*Math.PI;
+  const r=3+Math.random()*5;
+  pVerts[i*3]=r*Math.sin(phi)*Math.cos(theta);
+  pVerts[i*3+1]=r*Math.sin(phi)*Math.sin(theta);
+  pVerts[i*3+2]=r*Math.cos(phi);
+  pSizes[i]=Math.random()*0.04;
+}
+particleGeo.setAttribute('position',new THREE.BufferAttribute(pVerts,3));
+particleGeo.setAttribute('size',new THREE.BufferAttribute(pSizes,1));
+const particleMat = new THREE.PointsMaterial({
+  color:0xf0c060, size:0.04, transparent:true, opacity:0.5,
+  blending:THREE.AdditiveBlending, depthWrite:false
+});
+const particles = new THREE.Points(particleGeo,particleMat);
+scene.add(particles);
+
+// Grid floor
+const gridHelper = new THREE.PolarGridHelper(8, 32, 20, 64, 0x333333, 0x222222);
+gridHelper.position.y = -4;
+scene.add(gridHelper);
+
+// Ambient
+const ambient = new THREE.AmbientLight(0x202020, 0.5);
+scene.add(ambient);
+const pointLight = new THREE.PointLight(0xf0c060, 1, 15);
+pointLight.position.set(0,2,5);
+scene.add(pointLight);
+
+// ═════════════════════════════════════════════
+// ANIMATION LOOP
+// ═════════════════════════════════════════════
+function animate(t){
+  requestAnimationFrame(animate);
+  stars.rotation.y += 0.0003;
+  stars.rotation.x += 0.0001;
+  particles.rotation.y += 0.001;
+  particles.rotation.x += 0.0005;
+  rings.forEach((r,i)=>{
+    r.mesh.rotation.z += r.speed*0.005;
+    r.mesh.rotation.x += Math.sin(t*0.0005+i)*0.003;
+  });
+  gridHelper.rotation.z += 0.0002;
+  pointLight.intensity = 0.8 + Math.sin(t*0.001)*0.3;
+  renderer.render(scene,camera);
+}
+animate(0);
+
+// Resize
+window.addEventListener('resize',()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  chartGradient?.resize(); chartIndustry?.resize();
+  chartMap?.resize(); chartMonthly?.resize();
+});
+
+// ═════════════════════════════════════════════
+// CHARTS
+// ═════════════════════════════════════════════
+const chartOpts = {
+  textStyle:{color:'#a0a090',fontSize:10},
+  grid:{left:8,right:16,top:12,bottom:8,containLabel:true}
+};
+
+// Gradient Pie
+const chartGradient = echarts.init(document.getElementById('chartGradient'));
+chartGradient.setOption({
+  ...chartOpts,
+  series:[{type:'pie',radius:['50%','78%'],center:['50%','55%'],roseType:'radius',
+    label:{color:'#a0a090',fontSize:9},labelLine:{lineStyle:{color:'rgba(255,255,255,.1)'}},
+    data:[
+      {value:1240,name:'创新型',itemStyle:{color:'#60b0d0'}},
+      {value:728,name:'省专精特新',itemStyle:{color:'#f0c060'}},
+      {value:155,name:'国家小巨人',itemStyle:{color:'#50c878'}},
+      {value:3,name:'单项冠军',itemStyle:{color:'#e05050'}},
+    ]
+  }]
+});
+
+// Industry Bar
+const chartIndustry = echarts.init(document.getElementById('chartIndustry'));
+chartIndustry.setOption({
+  ...chartOpts,
+  xAxis:{type:'value',axisLine:{show:false},splitLine:{lineStyle:{color:'rgba(255,255,255,.04)'}}},
+  yAxis:{type:'category',data:['精密制造','新材料','电子信息','生物医药','新能源','纺织科技','光电技术','其他'],axisLine:{show:false},axisTick:{show:false}},
+  series:[{type:'bar',data:[28,22,18,12,10,8,6,4],
+    itemStyle:{color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#d4a030'},{offset:1,color:'#f0c060'}]),borderRadius:[0,4,4,0]},
+    barWidth:12,label:{show:true,position:'right',color:'#a0a090',fontSize:9}}]
+});
+
+// Map - Scatter bubble (Sichuan -> Jiaxing adaptation)
+const chartMap = echarts.init(document.getElementById('chartMap'));
+const geoCoordMap = {'南湖区':[120.78,30.75],'秀洲区':[120.71,30.77],'嘉善县':[120.92,30.83],'平湖市':[121.02,30.70],'海盐县':[120.95,30.53],'海宁市':[120.68,30.53],'桐乡市':[120.56,30.63]};
+const mapData = cityData.map(c=>({name:c.name,value:c.giants}));
+chartMap.setOption({
+  backgroundColor:'transparent',
+  geo:{map:'嘉兴',show:true,roam:false,zoom:1.15,center:[120.75,30.65],
+    itemStyle:{areaColor:'rgba(20,30,60,.8)',borderColor:'rgba(240,192,96,.25)',borderWidth:1.5},
+    emphasis:{itemStyle:{areaColor:'rgba(30,45,80,.9)'},label:{color:'#f0c060',fontSize:12}}
+  },
+  series:[{
+    type:'effectScatter',coordinateSystem:'geo',data:mapData,
+    symbolSize:val=>Math.sqrt(val)*4,showEffectOn:'render',
+    rippleEffect:{brushType:'stroke',scale:4,period:6},
+    itemStyle:{color:'#f0c060',shadowBlur:10,shadowColor:'rgba(240,192,96,.5)'},
+    label:{show:true,formatter:'{b}',position:'right',color:'#a0a090',fontSize:8}
+  },{
+    type:'scatter',coordinateSystem:'geo',data:mapData.map(d=>[d.name,d.value]),
+    symbolSize:val=>Math.sqrt(val)*3,
+    itemStyle:{color:'rgba(240,192,96,.15)',borderColor:'rgba(240,192,96,.4)',borderWidth:1}
+  }]
+});
+// Register Jiaxing geo (simplified — in practice would load a proper geoJSON)
+try{
+  echarts.registerMap('嘉兴',{type:'FeatureCollection',features:[
+    {type:'Feature',properties:{name:'南湖区'},geometry:{type:'Polygon',coordinates:[[[120.72,30.72],[120.82,30.72],[120.82,30.78],[120.72,30.78],[120.72,30.72]]]}},
+    {type:'Feature',properties:{name:'秀洲区'},geometry:{type:'Polygon',coordinates:[[[120.65,30.74],[120.75,30.74],[120.75,30.80],[120.65,30.80],[120.65,30.74]]]}},
+    {type:'Feature',properties:{name:'嘉善县'},geometry:{type:'Polygon',coordinates:[[[120.88,30.80],[120.98,30.80],[120.98,30.86],[120.88,30.86],[120.88,30.80]]]}},
+    {type:'Feature',properties:{name:'平湖市'},geometry:{type:'Polygon',coordinates:[[[120.98,30.66],[121.08,30.66],[121.08,30.74],[120.98,30.74],[120.98,30.66]]]}},
+    {type:'Feature',properties:{name:'海盐县'},geometry:{type:'Polygon',coordinates:[[[120.90,30.48],[121.00,30.48],[121.00,30.56],[120.90,30.56],[120.90,30.48]]]}},
+    {type:'Feature',properties:{name:'海宁市'},geometry:{type:'Polygon',coordinates:[[[120.62,30.48],[120.72,30.48],[120.72,30.56],[120.62,30.56],[120.62,30.48]]]}},
+    {type:'Feature',properties:{name:'桐乡市'},geometry:{type:'Polygon',coordinates:[[[120.50,30.58],[120.60,30.58],[120.60,30.66],[120.50,30.66],[120.50,30.58]]]}},
+  ]});
+}catch(e){}
+
+// Monthly Progress
+const chartMonthly = echarts.init(document.getElementById('chartMonthly'));
+chartMonthly.setOption({
+  ...chartOpts, legend:{textStyle:{color:'#a0a090'},bottom:0,data:['需求','完成']},
+  xAxis:{type:'category',data:['1月','2月','3月','4月','5月','6月'],axisLine:{show:false},axisTick:{show:false}},
+  yAxis:{type:'value',splitLine:{lineStyle:{color:'rgba(255,255,255,.04)'}}},
+  series:[
+    {name:'需求',type:'bar',data:[28,32,38,45,35,42],itemStyle:{color:'#d4a030',borderRadius:[3,3,0,0]},barWidth:10,barGap:'30%'},
+    {name:'完成',type:'bar',data:[22,25,30,35,32,28],itemStyle:{color:'#50c878',borderRadius:[3,3,0,0]},barWidth:10}
+  ]
+});
+
+// ═════════════════════════════════════════════
+// POPULATE HTML SECTIONS
+// ═════════════════════════════════════════════
+// Progress Strip
+document.getElementById('progressStrip').innerHTML = targets.map(t=>`
+  <div class="p-item ${t.pct>=80?'achieved':'in-progress'}">
+    <div class="p-icon">${t.icon}</div>
+    <div style="min-width:0">
+      <div style="display:flex;align-items:baseline;gap:4px">
+        <div class="p-num">${t.current}</div>
+        <div style="font-size:10px;color:var(--text2)">/ ${t.goal}${t.unit}</div>
+      </div>
+      <div class="p-label">${t.label}</div>
+      <div class="p-bar"><div class="p-fill ${t.pct>=80?'g':t.pct>=40?'y':'b'}" style="width:${t.pct}%"></div></div>
+    </div>
+  </div>
+`).join('');
+
+// City Compare Table
+document.getElementById('cityCompare').innerHTML = cities.map((c,i)=>`
+  <tr>
+    <td><b>${c}</b>${c==='嘉兴'?' 🔵':''}</td>
+    <td><div class="bar-cell"><span>${cityGiants[i]}</span><div class="b"><div class="bf ${cityGiants[i]>200?'bf-g':cityGiants[i]>100?'bf-y':'bf-r'}" style="width:${cityGiants[i]/3.5}%"></div></div></div></td>
+    <td><span style="color:${cityDigital[i]>=80?'var(--green)':cityDigital[i]>=60?'var(--gold2)':'var(--red)'}">${cityDigital[i]}%</span></td>
+    <td>${cityRD[i]}%</td>
+  </tr>
+`).join('');
+
+// Prediction Table
+document.getElementById('predictionTable').innerHTML = enterprises
+  .filter(e=>e.stage!=='小巨人')
+  .sort((a,b)=>b.score-a.score)
+  .slice(0,8)
+  .map((e,i)=>{
+    const predictScore = 60 + Math.floor(Math.random()*30);
+    const gap = e.targetScore - e.score;
+    return `<tr>
+      <td style="font-weight:500">${e.name.slice(0,8)}</td>
+      <td><span style="color:var(--gold2);font-size:10px">${e.stage}</span></td>
+      <td><div class="bar-cell"><span>${predictScore}%</span><div class="b"><div class="bf ${predictScore>80?'bf-g':predictScore>60?'bf-y':'bf-r'}" style="width:${predictScore}%"></div></div></div></td>
+    </tr>`;
+  }).join('');
+
+// Data Stream
+const streamItems = [
+  {icon:'📡',val:'2,126',lbl:'在服企业实时监测中'},
+  {icon:'🏪',val:'70',lbl:'服务机构在线',color:'var(--green)'},
+  {icon:'📬',val:'347',lbl:'累计需求',color:'var(--gold2)'},
+  {icon:'⏱',val:'4.2h',lbl:'平均响应时间'},
+  {icon:'⭐',val:'4.6',lbl:'服务满意度',color:'var(--gold2)'},
+];
+document.getElementById('dataStream').innerHTML = streamItems.map(s=>`
+  <div class="ds-item">
+    <span class="ds-icon">${s.icon}</span>
+    <span class="ds-val" style="${s.color?'color:'+s.color:''}">${s.val}</span>
+    <span class="ds-lbl">${s.lbl}</span>
+  </div>
+`).join('');
+
+// Auto-resize charts
+window.addEventListener('resize',()=>{chartGradient.resize();chartIndustry.resize();chartMap.resize();chartMonthly.resize();});
+</script>
+</body>
+</html>
